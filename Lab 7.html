@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!--Sound effects from ZapSplat-->
+    <!--I didn't make any of the art.-->
+        <!--Links included-->
+    <meta charset="UTF-8">
+    <title>Dragon Age 3.1: Memory Game</title>
+    <script src="p5.js"></script>
+</head>
+<style>
+    .center
+    {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+    }
+    .bodyStyle{
+        background-color: #0a0a0a;
+
+    }
+</style>
+<body class="bodyStyle">
+<div class="center" id="canvas-holder"> </div>
+<script>
+
+    /*var canvas = document.getElementById("canvas");*/
+
+    var NUM_COLS = 7;
+    var NUM_ROWS = 4;
+    var TILE_SIZE = 128;
+
+    var canvasWidth = (TILE_SIZE+10)*NUM_COLS+10;
+    var canvasHeight = ((TILE_SIZE+10)*NUM_ROWS+10) + 75;
+
+    var cardSound = new Audio("zapsplat_warfare_sword_medieval_heavy_draw_scabbard_010_12097.mp3");
+    var matchSound = new Audio("zapsplat_magic_wand_ping_004_12532.mp3");
+    var withinTile;
+
+    var flippedTiles = [];
+    var delayStartFC = null;
+    var numTries = 0;
+
+    var startDate = new Date();
+    var startTime = startDate.getTime();
+
+    var backImage;
+    var redTries;
+    var hideTries;
+
+    var faceImageFileNames =
+        [
+            "Alistair.jpg",
+            "Anders.jpg",
+            "Aveline.jpg",
+            "Cassandra.jpg",
+            "Cullen.jpg",
+            "Fenris.png",
+            "Isabela.jpg",
+            "Josephine.jpg",
+            "Leliana.jpg",
+            "Mabari.jpg",
+            "Oghren.jpg",
+            "Thom.jpg",
+            "Varric.jpg",
+            "Zevran.jpg"
+        ];
+    var faces = [];
+    var tiles = [];
+
+    var Tile = function (x, y, face)
+    {
+        this.x = x;
+        this.y = y;
+        this.face = face;
+        this.isFaceUp = false
+    };
+
+    Tile.prototype.drawFaceDown = function ()
+    {
+        fill(160, 0, 0);
+        strokeWeight(2);
+        rect(this.x, this.y, TILE_SIZE, TILE_SIZE, 10);
+        image(backImage, this.x, this.y, TILE_SIZE, TILE_SIZE);
+        this.isFaceUp = false
+    };
+
+    Tile.prototype.drawFaceUp = function ()
+    {
+        fill(160, 0, 0);
+        strokeWeight(2);
+        rect(this.x, this.y, TILE_SIZE, TILE_SIZE, 10);
+        image(this.face, this.x, this.y, TILE_SIZE, TILE_SIZE);
+        this.isFaceUp = true;
+    };
+
+    Tile.prototype.isUnderMouse = function (x, y)
+    {
+        return (x >= this.x) && (x <= this.x + TILE_SIZE) &&
+            (y >= this.y) && (y <= this.y + TILE_SIZE);
+    };
+
+    function preload()
+    {
+        backImage = loadImage("CardBack.png");
+
+
+        for (var i = 0; i < faceImageFileNames.length; i++)
+        {
+            var myImage = loadImage(faceImageFileNames[i]);
+            faces.push(myImage);
+        }
+    }
+    function setup()
+    {
+        createCanvas(canvasWidth, canvasHeight);
+
+        redTries = color(153, 0, 0);
+        hideTries = color(10, 10, 10);
+
+        fill(214, 0, 0);
+        strokeWeight(2);
+        rect(0, 0, canvasWidth, canvasHeight, 10);
+
+        var possibleFaces = faces.slice(0);
+        var selected = [];
+        for (var i = 0; i < (NUM_COLS * NUM_ROWS) / 2; i++)
+        {
+            var randomInd = floor(random(possibleFaces.length));
+            var face = possibleFaces[randomInd];
+
+            selected.push(face);
+            selected.push(face);
+
+            possibleFaces.splice(randomInd, 1);
+        }
+
+        selected.sort(function ()
+        {
+            return 0.5 - Math.random();
+        });
+
+        // Create the tiles
+        for (var i = 0; i < NUM_COLS; i++)
+        {
+            for (var j = 0; j < NUM_ROWS; j++)
+            {
+                //Create a new tile, pop the next image from the selected[] array, and
+                //   assign the popped image to the tile.
+                tiles.push(new Tile(i * (TILE_SIZE+10) + 10, j * (TILE_SIZE+10) + 10, selected.pop()));
+            }
+        }
+
+        background(10, 10, 10);
+
+        // Now draw them face down
+        for (var i = 0; i < tiles.length; i++)
+        {
+            tiles[i].drawFaceDown();
+        }
+    }
+
+    function mouseClicked()
+    {
+        if(withinTile = true){
+            cardSound.play();
+        }
+        for (var i = 0; i < tiles.length; i++)
+        {
+            if (tiles[i].isUnderMouse(mouseX, mouseY))
+            {
+                if (flippedTiles.length < 2 && !tiles[i].isFaceUp)
+                {
+                    tiles[i].drawFaceUp();
+                    flippedTiles.push(tiles[i]);
+                    if (flippedTiles.length === 2)
+                    {
+                        numTries++;
+
+                        stroke(10, 10, 10);
+                        fill(10, 10, 10);
+                        rect(0, canvasHeight - 82, canvasWidth, 82);
+
+                        stroke(redTries);
+                        fill(redTries);
+                        textSize(24);
+                        text("Tries: " + numTries, canvasWidth - 100, canvasHeight - 5);
+
+                        if (flippedTiles[0].face === flippedTiles[1].face)
+                        {
+                            flippedTiles[0].isMatch = true;
+                            flippedTiles[1].isMatch = true;
+                            matchSound.play();
+                        }
+                        delayStartFC = frameCount;
+                    }
+                }
+            }
+        }
+        var foundAllMatches = true;
+        for (var i = 0; i < tiles.length; i++)
+        {
+            foundAllMatches = foundAllMatches && tiles[i].isMatch;
+        }
+
+
+        if (foundAllMatches)
+        {
+            redTries = hideTries;
+            fill(255, 255, 255);
+            stroke(255, 255, 255);
+            textSize(20);
+
+            startDate = new Date();
+            var currentTime = startDate.getTime();
+            var timeChange = Math.round((currentTime - startTime) / 1000);
+
+/*            text("You found them all in " + numTries + " tries!", 20, 375);
+            var min = Math.floor(timeChange/60);
+            var sec = timeChange % 60;
+            text("It took you " + min + " min and " + sec +" sec", 20, 415);*/
+            text("You found them in " + numTries + " tries!", 20, canvasHeight-45);
+            var min = Math.floor(timeChange/60);
+            var sec = timeChange % 60;
+            text("It took you " + min + " min and " + sec + " sec", 20, canvasHeight-8);
+        }
+    }
+    function draw()
+    {
+        stroke(0, 0, 0);
+        if (delayStartFC && (frameCount - delayStartFC) > 30)
+        {
+            for (var i = 0; i < tiles.length; i++)
+            {
+                if (!tiles[i].isMatch)
+                {
+                    tiles[i].drawFaceDown();
+                }
+            }
+            flippedTiles = [];
+            delayStartFC = null;
+        }
+    }
+
+</script>
+</div>
+</body>
+</html>
